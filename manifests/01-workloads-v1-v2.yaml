@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payments-sa
+  namespace: payments-mesh
+  labels:
+    app: payments-service
+    app.kubernetes.io/managed-by: acelera-devops
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments-service
+  namespace: payments-mesh
+  labels:
+    app: payments-service
+    service: payments-service
+spec:
+  ports:
+    - name: http-web
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app: payments-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-v1
+  namespace: payments-mesh
+  labels:
+    app: payments-service
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: payments-service
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: payments-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: payments-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: payments-api
+          image: hashicorp/http-echo:1.0.0
+          args:
+            - "-listen=:8080"
+            - "-text={\"service\":\"payments-service\",\"version\":\"v1-stable\",\"status\":\"APPROVED\",\"mesh\":\"istio-strict-mtls\"}"
+          ports:
+            - containerPort: 8080
+              name: http-web
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-v2
+  namespace: payments-mesh
+  labels:
+    app: payments-service
+    version: v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payments-service
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: payments-service
+        version: v2
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: payments-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: payments-api
+          image: hashicorp/http-echo:1.0.0
+          args:
+            - "-listen=:8080"
+            - "-text={\"service\":\"payments-service\",\"version\":\"v2-canary\",\"status\":\"APPROVED_PIX_INSTANT\",\"mesh\":\"istio-strict-mtls\"}"
+          ports:
+            - containerPort: 8080
+              name: http-web
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

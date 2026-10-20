@@ -1,0 +1,36 @@
+name: Istio Service Mesh Manifests CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-manifests:
+    name: Validate Kubernetes & Istio YAML Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate multi-document YAML syntax & required Kubernetes fields
+        run: |
+          python3 -c '
+          import glob, yaml
+          for path in sorted(glob.glob("manifests/*.yaml")):
+              with open(path, "r", encoding="utf-8") as fh:
+                  docs = list(yaml.safe_load_all(fh))
+              assert len(docs) > 0, f"Empty manifest: {path}"
+              for idx, doc in enumerate(docs):
+                  assert doc is not None, f"Null document in {path}"
+                  for req in ("apiVersion", "kind", "metadata"):
+                      assert req in doc, f"Missing {req} in {path} doc #{idx}"
+                  print(f"OK: {path} -> {doc[\"apiVersion\"]} / {doc[\"kind\"]} ({doc[\"metadata\"].get(\"name\")})")
+          '
+
+      - name: Validate verify-mesh.sh bash syntax
+        run: bash -n scripts/verify-mesh.sh

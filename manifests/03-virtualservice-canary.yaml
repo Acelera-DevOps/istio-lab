@@ -1,0 +1,49 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: payments-virtualservice
+  namespace: payments-mesh
+  labels:
+    app.kubernetes.io/part-of: acelera-devops-istio-lab
+spec:
+  hosts:
+    - "payments.acelera-devops.local"
+    - "payments-service.payments-mesh.svc.cluster.local"
+    - "payments-service"
+  gateways:
+    - payments-gateway
+    - mesh
+  http:
+    # 1. Header-based Canary Routing: 100% to v2-canary when header x-canary-tier: insider is present
+    - name: insider-canary-route
+      match:
+        - headers:
+            x-canary-tier:
+              exact: insider
+      route:
+        - destination:
+            host: payments-service.payments-mesh.svc.cluster.local
+            subset: v2
+          weight: 100
+      timeout: 2s
+      retries:
+        attempts: 3
+        perTryTimeout: 600ms
+        retryOn: gateway-error,connect-failure,refused-stream,5xx
+
+    # 2. Progressive Canary Traffic Split: 90% v1-stable / 10% v2-canary
+    - name: progressive-canary-90-10
+      route:
+        - destination:
+            host: payments-service.payments-mesh.svc.cluster.local
+            subset: v1
+          weight: 90
+        - destination:
+            host: payments-service.payments-mesh.svc.cluster.local
+            subset: v2
+          weight: 10
+      timeout: 2s
+      retries:
+        attempts: 3
+        perTryTimeout: 600ms
+        retryOn: gateway-error,connect-failure,refused-stream,5xx

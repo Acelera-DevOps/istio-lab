@@ -1,0 +1,27 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: payments-gateway
+  namespace: payments-mesh
+  labels:
+    app.kubernetes.io/part-of: acelera-devops-istio-lab
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "payments.acelera-devops.local"
+        - "*"
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      tls:
+        mode: SIMPLE
+        credentialName: payments-tls-credential
+      hosts:
+        - "payments.acelera-devops.local"

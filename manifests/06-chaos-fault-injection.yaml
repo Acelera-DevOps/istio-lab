@@ -1,0 +1,44 @@
+# Optional Chaos Engineering Profile — Apply via `make chaos-enable`
+# Injects 5% HTTP 503 aborts and 2s fixed latency on 10% of requests to v2-canary
+# to test client timeouts, retries, and Envoy OutlierDetection circuit breaking.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: payments-virtualservice
+  namespace: payments-mesh
+  labels:
+    app.kubernetes.io/part-of: acelera-devops-istio-lab
+    chaos-profile: enabled
+spec:
+  hosts:
+    - "payments.acelera-devops.local"
+    - "payments-service.payments-mesh.svc.cluster.local"
+    - "payments-service"
+  gateways:
+    - payments-gateway
+    - mesh
+  http:
+    - name: chaos-fault-injection-canary
+      fault:
+        delay:
+          percentage:
+            value: 10.0
+          fixedDelay: 2s
+        abort:
+          percentage:
+            value: 5.0
+          httpStatus: 503
+      route:
+        - destination:
+            host: payments-service.payments-mesh.svc.cluster.local
+            subset: v1
+          weight: 90
+        - destination:
+            host: payments-service.payments-mesh.svc.cluster.local
+            subset: v2
+          weight: 10
+      timeout: 1500ms
+      retries:
+        attempts: 3
+        perTryTimeout: 500ms
+        retryOn: gateway-error,connect-failure,refused-stream,5xx
