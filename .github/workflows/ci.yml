@@ -29,7 +29,10 @@ jobs:
                   assert doc is not None, f"Null document in {path}"
                   for req in ("apiVersion", "kind", "metadata"):
                       assert req in doc, f"Missing {req} in {path} doc #{idx}"
-                  print(f"OK: {path} -> {doc[\"apiVersion\"]} / {doc[\"kind\"]} ({doc[\"metadata\"].get(\"name\")})")
+                  api = doc["apiVersion"]
+                  kind = doc["kind"]
+                  name = doc["metadata"].get("name")
+                  print(f"OK: {path} -> {api} / {kind} ({name})")
           '
 
       - name: Validate verify-mesh.sh bash syntax
